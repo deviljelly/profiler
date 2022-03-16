@@ -1,3 +1,9 @@
+/*
+ *
+ * Author: Paul Anderson, 2022
+ *
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -2194,12 +2200,12 @@ uint8_t* fixClassName(uint8_t *name) {
 
 void JNICALL MethodEntry(jvmtiEnv *jvmti_env, JNIEnv* jni_env, jthread thread, jmethodID method) {
 
-MethodEntryInternal(jvmti_env, jni_env, thread, method, NULL);
+    MethodEntryInternal(jvmti_env, jni_env, thread, method, NULL);
 
 }
 
 
-void MethodEntryInternal(jvmtiEnv *jvmti_env, JNIEnv* jni_env, jthread thread, jmethodID method, Buffer *buffer) {
+void inline MethodEntryInternal(jvmtiEnv *jvmti_env, JNIEnv* jni_env, jthread thread, jmethodID method, Buffer *buffer) {
 
     uint64_t start = getTicks();
 
@@ -2212,10 +2218,16 @@ void MethodEntryInternal(jvmtiEnv *jvmti_env, JNIEnv* jni_env, jthread thread, j
     returnCode = (*jvmtiInterface)->GetThreadLocalStorage(jvmtiInterface, thread, (void **) &threadNode);
 
     if (threadNode <= 0) {
+#ifdef __MVS__
+#pragma execution_frequency(very_low)
+#endif
         threadNode = discoverThread(jvmtiInterface, thread);
     }
 
     if(!buffer) {
+#ifdef __MVS__
+#pragma execution_frequency(very_high)
+#endif
         buffer = threadNode->threadBuffer;
     }
 
@@ -2225,6 +2237,9 @@ void MethodEntryInternal(jvmtiEnv *jvmti_env, JNIEnv* jni_env, jthread thread, j
     MethodIDNode *methodIDNode = threadNode->methodCache[cacheEntry];
 
     if ((methodIDNode <= 0) || (methodIDNode->jvmtiMethodID != method)) {
+#ifdef __MVS__
+#pragma execution_frequency(very_low)
+#endif
         methodIDNode = getMethodIDNode(method);
         if (methodIDNode > 0) {
             threadNode->methodCache[cacheEntry] = methodIDNode;
@@ -2241,14 +2256,36 @@ void MethodEntryInternal(jvmtiEnv *jvmti_env, JNIEnv* jni_env, jthread thread, j
     }
 
     if (methodIDNode <= 0) {
+#ifdef __MVS__
+#pragma execution_frequency(very_low)
+#endif
         error("MethodEntry: methodIDNode still NULL after discovery %p %p\n", methodIDNode, method)
         return;
     }
 
+
+/*
+
+    MethodIDNode *methodIDNode = getMethodIDNode(method);
+
+    if (methodIDNode <= 0) {
+#ifdef __MVS__
+#pragma execution_frequency(very_low)
+#endif
+        jclass declaringClass;
+        returnCode = (*jvmtiInterface)->GetMethodDeclaringClass(jvmtiInterface, method, &declaringClass);
+        discoverClass(jvmtiInterface, jni_env, declaringClass, true);
+        methodIDNode = getMethodIDNode(method);
+    }
+
+ */
+
     jlong tag = -1;
 
     if(tagObjects && !methodIDNode->staticMethod) {
-
+#ifdef __MVS__
+        #pragma execution_frequency(very_low)
+#endif
         jobject this = NULL;
 
         returnCode = (*jvmtiInterface)->GetLocalObject(jvmtiInterface, thread, 0, 0, &this);
@@ -2279,12 +2316,12 @@ void MethodEntryInternal(jvmtiEnv *jvmti_env, JNIEnv* jni_env, jthread thread, j
 
 void JNICALL MethodExit(jvmtiEnv *jvmti_env, JNIEnv* jni_env, jthread thread, jmethodID method, jboolean was_popped_by_exception, jvalue return_value) {
 
-MethodExitInternal(jvmti_env, jni_env, thread, method, was_popped_by_exception, return_value, NULL);
+    MethodExitInternal(jvmti_env, jni_env, thread, method, was_popped_by_exception, return_value, NULL);
 
 }
 
 
-void MethodExitInternal(jvmtiEnv *jvmti_env, JNIEnv* jni_env, jthread thread, jmethodID method, jboolean was_popped_by_exception, jvalue return_value, Buffer *buffer) {
+void inline MethodExitInternal(jvmtiEnv *jvmti_env, JNIEnv* jni_env, jthread thread, jmethodID method, jboolean was_popped_by_exception, jvalue return_value, Buffer *buffer) {
 
     uint64_t start = getTicks();
 
@@ -2297,16 +2334,25 @@ void MethodExitInternal(jvmtiEnv *jvmti_env, JNIEnv* jni_env, jthread thread, jm
     returnCode = (*jvmtiInterface)->GetThreadLocalStorage(jvmtiInterface, thread, (void **) &threadNode);
 
     if (returnCode != JNI_OK) {
+#ifdef __MVS__
+#pragma execution_frequency(very_low)
+#endif
         error("Unable to GetThreadLocalStorage (%d)\n", returnCode)
     }
 
     if (threadNode <= 0) {
+#ifdef __MVS__
+#pragma execution_frequency(very_low)
+#endif
         threadNode = discoverThread(jvmtiInterface, thread);
     }
 
 //      uint64_t entryOverhead = threadNode->overhead[--threadNode->overheadPointer];
 
     if(!buffer) {
+#ifdef __MVS__
+#pragma execution_frequency(very_high)
+#endif
         buffer = threadNode->threadBuffer;
 
     }
@@ -2582,7 +2628,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *agentOptions, void *reserv
 
 #endif
 
-#ifdef __linux
+#ifdef __MVS__
 
     headerTicksPerMicrosecond = 4096;
 

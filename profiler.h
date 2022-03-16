@@ -1,3 +1,9 @@
+/*
+ *
+ * Author: Paul Anderson, 2022
+ *
+ */
+
 #ifndef PROFILER_H_
 #define PROFILER_H_
 

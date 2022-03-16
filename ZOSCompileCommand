@@ -1,1 +1,7 @@
+/*
+ *
+ * Author: Paul Anderson, 2022
+ *
+ */
+
 xlc -O3 -qtune=12 -qarch=12 -qlanglvl=extc1x -qexportall -o libprofiler.so -W "c,lp64,xplink,dll" -W "l,lp64,xplink,dll" -D_XOPEN_SOURCE=600 -D_XOPEN_SOURCE_EXTENDED -I/usr/lpp/java/current/include tables.c profiler.c /usr/lpp/java/current/bin/classic/libjvm.x

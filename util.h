@@ -1,21 +1,14 @@
+/*
+ *
+ * Author: Paul Anderson, 2022
+ *
+ */
+
 #ifndef UTIL_H_
 #define UTIL_H_
 
 #include <stdint.h>
 #include <stdbool.h>
-
-#ifdef __WIN32__
-#include <windows.h>
-#endif
-
-#ifdef __linux
-#include <pthread.h>
-#endif
-
-#ifdef __MVS__
-#include <pthread.h>
-#endif
-
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,6 +16,39 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <time.h>
+
+#ifdef __WIN32__
+#include <windows.h>
+#endif
+
+#if defined  __linux || defined __MVS__
+#include <pthread.h>
+#endif
+
+#ifdef __MVS__
+#include <errno.h>
+#endif
+
+
+#ifdef __MVS__
+#pragma map(cond_timed_wait, "BPX4CTW")
+#pragma linkage(cond_timed_wait,os)
+
+#define CW_INTRPT    1
+#define JRTIMEOUT   0x81F0211  // wait time exceeded
+
+void cond_timed_wait(
+    uint32_t *seconds,
+    uint32_t *nanoseconds,
+    uint32_t *event_list,
+    uint32_t *seconds_remaining,
+    uint32_t *nanoseconds_remaining,
+    uint32_t *return_value,
+    uint32_t *return_code,
+    uint32_t *reason_code
+    );
+
+#endif
 
 #define UNLOCKED 0
 #define LOCKED 1
@@ -262,11 +288,11 @@ static inline uint32_t atomicIncrement(uint32_t *pointer) {
     uint32_t old = *pointer;
     uint32_t new = old+1;
 
-        while(__cs1(&old, pointer, &new)) {
-            new = old+1;
+    while(__cs1(&old, pointer, &new)) {
+        new = old+1;
     }
 
-            return old;
+    return old;
 
 }
 #endif
@@ -275,9 +301,15 @@ static inline uint32_t atomicIncrement(uint32_t *pointer) {
 #ifdef __MVS__
 static inline int nanosleep(const struct timespec *rqtp, struct timespec *rmtp) {
 
-       struct timeval req = {.tv_sec = rqtp->tv_sec, .tv_usec = rqtp->tv_nsec/1000};
+    struct timeval req = {.tv_sec = rqtp->tv_sec, .tv_usec = rqtp->tv_nsec/1000};
 
-       return select(0,NULL,NULL,NULL, &req);
+   // uint64_t start = getTicks();
+    int returnCode = select(0,NULL,NULL,NULL, &req);
+   // uint64_t stop = getTicks();
+
+  //  warn("%" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", rqtp->tv_sec, rqtp->tv_nsec, req.tv_sec, req.tv_usec, (stop-start), (stop-start)/4096)
+
+    return returnCode;
 
 }
 #endif
